@@ -1,7 +1,9 @@
 from ModuleFolders.Cache.CacheItem import Status
 from ModuleFolders.Cache.CacheProject import CacheProject
 from PluginScripts.PluginBase import PluginBase
-
+import re
+pattern = r"[\u4e00-\u9fcf][ぁ-ゖ]|[ぁ-ゖ][ぁ-ゖ]|(?!([ァ-ヺ])\1\1)[ァ-ヺ]{3}"
+pattern2 = r"\b\d.*\b ID\b.*"
 
 class GeneralTextFilter(PluginBase):
     def __init__(self):
@@ -65,8 +67,18 @@ class GeneralTextFilter(PluginBase):
             # 检查开头的
             if isinstance(source_text, str) and any(source_text.startswith(ext) for ext in self.EXCLUDE_PREFIX):
                 entry.translation_status = Status.EXCLUDED
+                continue          
+            # 自用ASCII过滤
+            if isinstance(source_text, str) and bool(re.search(pattern2, source_text)):
+                entry.translation_status = Status.EXCLUDED
                 continue
-
+            elif isinstance(source_text, str) and not bool(re.search(pattern, source_text)):
+                entry.translation_status = Status.EXCLUDED
+                continue
+            else:
+                print(source_text)
+                continue
+            
     # 检查字符串是否只包含常见的标点符号
     def is_punctuation_string(self,s: str) -> bool:
         """检查字符串是否只是标点符号与双种空格组合"""
@@ -78,6 +90,7 @@ class GeneralTextFilter(PluginBase):
         split = text.rsplit(".", 1)
         return f".{split[1]}" if len(split) == 2 else split[0]
 
+        
     EXCLUDE_PREFIX = ('MapData/', 'SE/', 'BGS', '0=', 'BGM/', 'FIcon/', '<input type=', 'width:', '<div ', 'EV0', '\\img')
 
     EXCLUDE_FILE_SUFFIX = frozenset([
