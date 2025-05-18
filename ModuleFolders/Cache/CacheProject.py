@@ -25,6 +25,7 @@ class ProjectType:
     VNT = "Vnt"
     VTT = "Vtt"
     I18NEXT = "I18next"
+    BABELDOC_PDF = "BabeldocPdf"
 
 
 @dataclass(repr=False)
@@ -85,3 +86,6 @@ class CacheProject(ThreadSafeCache, ExtraMixin):
     def file_project_types(self) -> frozenset[str]:
         with self._lock:
             return frozenset(file.file_project_type for file in self.files.values())
+
+    def _extra(self) -> dict[str, Any]:
+        return self.extra

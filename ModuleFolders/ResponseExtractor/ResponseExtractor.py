@@ -81,7 +81,7 @@ class ResponseExtractor:
     def extract_translation(self,source_text_dict,html_string):
 
         # 提取翻译文本
-        text_dict = ResponseExtractor.label_text_extraction(self,html_string)
+        text_dict = ResponseExtractor.label_text_extraction(self,source_text_dict,html_string)
 
         if not text_dict:
             return {}  # 如果没有找到标签内容，返回空 JSON
@@ -95,7 +95,7 @@ class ResponseExtractor:
         return translation_result
 
     # 辅助函数，正则提取标签文本内容
-    def label_text_extraction(self, html_string):
+    def label_text_extraction(self,source_text_dict, html_string):
 
         # 只提取最后一个 textarea 标签的内容
         textarea_contents = re.findall(r'<textarea.*?>(.*?)</textarea>', html_string, re.DOTALL)
@@ -105,6 +105,10 @@ class ResponseExtractor:
 
         # 提取文本存储到字典中
         output_dict = ResponseExtractor.extract_text_to_dict(self,last_content)
+
+        # 如果原文是一行，则跳过过滤，主要是本地模型兼容
+        if len(source_text_dict) == 1 :
+             return output_dict 
 
         # 从第一个以数字序号开头的行开始，保留之后的所有行(主要是有些AI会在译文内容前面加点说明)
         filtered_dict = {}
@@ -396,7 +400,7 @@ class ResponseExtractor:
             return True
 
         # 过滤表头行
-        if original.strip().lower() in ("原文", "原名", "名字", "source", "original", "name"):
+        if original.strip().lower() in ("原文", "原名", "名字", "source", "original", "name", "|"):
             return True
 
         # 过滤提取错行
@@ -429,6 +433,10 @@ class ResponseExtractor:
 
         # 过滤随机英文+数字，像“P1”这样的内容
         if re.fullmatch(r'[a-zA-Z]\d+', original):
+            return True
+
+        # 过滤占位符，像[P1]
+        if re.fullmatch(r'\[[a-zA-Z]\d+\]', original):
             return True
 
         # 过滤换行符或制表符
