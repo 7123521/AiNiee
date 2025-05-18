@@ -509,7 +509,7 @@ class TranslatorTask(Base):
         else:
             rows.append(
                 f"任务耗时 {(time.time() - start_time):.2f} 秒，"
-                + f"文本行数 {len(source)} 行，提示消耗 {prompt_tokens} Tokens，补全消耗 {completion_tokens} Tokens"
+                + f"文本行数 {len(source)} 行，提示消耗 {prompt_tokens} Tokens，补全消耗 {completion_tokens} Tokens，平均每行消耗{(prompt_tokens+completion_tokens)/len(source)}"
             )
 
         # 添加额外日志
@@ -526,7 +526,7 @@ class TranslatorTask(Base):
             t_lines = t.split('\n') if t is not None else ['']
             # 逐行对比，确保对齐
             for s_line, t_line in itertools.zip_longest(s_lines, t_lines, fillvalue=""):
-                pair += f"{s_line} [bright_blue]-->\n[/] {t_line}\n"
+                pair += f" {s_line} [bright_blue]-->\n[/] {t_line}\n"
         
         rows.append(pair.strip())
 
