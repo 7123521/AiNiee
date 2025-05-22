@@ -509,7 +509,7 @@ class TranslatorTask(Base):
         else:
             rows.append(
                 f"任务耗时 {(time.time() - start_time):.2f} 秒，"
-                + f"文本行数 {len(source)} 行，提示消耗 {prompt_tokens} Tokens，补全消耗 {completion_tokens} Tokens，平均每行消耗{(prompt_tokens+completion_tokens)/len(source)}"
+                + f"文本行数 {len(source)} 行，提示消耗 {prompt_tokens} Tokens，补全消耗 {completion_tokens} Tokens，平均每行消耗{(prompt_tokens+completion_tokens)/len(source)}，提示/补全比例为 {prompt_tokens/completion_tokens} ，总共消耗 {(prompt_tokens+completion_tokens)} tokens"
             )
 
         # 添加额外日志

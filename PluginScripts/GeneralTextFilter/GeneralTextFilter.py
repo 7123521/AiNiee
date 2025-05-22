@@ -76,7 +76,7 @@ class GeneralTextFilter(PluginBase):
                 entry.translation_status = TranslationStatus.EXCLUDED
                 continue
             else:
-                print(source_text)
+                
                 continue
             
     # 检查字符串是否只包含常见的标点符号
