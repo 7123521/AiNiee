@@ -204,7 +204,7 @@ class TextProcessor(Base):
                 def replacer_for_this_pattern(match_obj):
                     nonlocal global_match_count, sakura_match_count, single_pattern_replacements
                     
-                    if global_match_count >= 50:
+                    if global_match_count >= 100:
                         return match_obj.group(0)
                     
                     global_match_count += 1
