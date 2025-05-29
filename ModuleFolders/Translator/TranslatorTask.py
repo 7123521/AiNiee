@@ -252,6 +252,7 @@ class TranslatorTask(Base):
                 numbered_lines.append(f"{index + 1}.{line}")
 
         source_text_str = "\n".join(numbered_lines)
+    
         source_text_str = f"{previous}\n{pre_prompt}<textarea>\n{source_text_str}\n</textarea>"
 
         #print(source_text_str)

@@ -230,7 +230,7 @@ class TextProcessor(Base):
                     print(f"[Warning]: 占位正则替换出现问题！！ pattern '{pattern_obj.pattern}' on key '{key}': {e}")
                     continue 
                 
-                if global_match_count >= 50:
+                if global_match_count >= 100:
                     break 
             
             placeholder_order[key] = entry_placeholders
