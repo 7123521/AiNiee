@@ -2,7 +2,7 @@ from ModuleFolders.Cache.CacheItem import TranslationStatus
 from ModuleFolders.Cache.CacheProject import CacheProject
 from PluginScripts.PluginBase import PluginBase
 import re
-pattern = r"[\u4e00-\u9fcf][ぁ-ゖ]|[ぁ-ゖ][ぁ-ゖ]|(?!([ァ-ヺ])\1\1)[ァ-ヺ]{3}"
+pattern = r"[\u4e00-\u9fcf]・！[ぁ-ゖ]|[ぁ-ゖ][ぁ-ゖ]|(?!([ァ-ヺ])\1\1)[ァ-ヺ]{3}"
 pattern2 = r"\b\d.*\b ID\b.*"
 
 class GeneralTextFilter(PluginBase):
