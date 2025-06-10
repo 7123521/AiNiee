@@ -59,13 +59,6 @@ class ScheduledTranslationDialog(MessageBoxBase, Base):
 
 class TranslationPage(QWidget, Base):
 
-    STATUS_TEXT = {
-        Base.STATUS.IDLE: "No Task",
-        Base.STATUS.API_TEST: "Testing",
-        Base.STATUS.TRANSLATING: "Translating",
-        Base.STATUS.STOPING: "Stopping",
-    }
-
     def __init__(self, text: str, window: FluentWindow) -> None:
         super().__init__(window)
         self.setObjectName(text.replace(" ", "-"))
@@ -318,12 +311,12 @@ class TranslationPage(QWidget, Base):
         self.add_combined_line_card(self.head_hbox, config, window)
         self.add_time_card(self.head_hbox, config, window)
         self.add_remaining_time_card(self.head_hbox, config, window)
+        self.add_token_card(self.head_hbox, config, window)
+        self.add_task_card(self.head_hbox, config, window)
 
         self.add_ring_card(self.head_hbox, config, window)
         self.add_waveform_card(self.head_hbox, config, window)
 
-        self.add_token_card(self.head_hbox, config, window)
-        self.add_task_card(self.head_hbox, config, window)
         self.add_speed_card(self.head_hbox, config, window)
         self.add_stability_card(self.head_hbox, config, window)
 
@@ -411,23 +404,23 @@ class TranslationPage(QWidget, Base):
     # 行数统计
     def add_combined_line_card(self, parent: QLayout, config: dict, window: FluentWindow) -> None:
         """Adds the combined line count card to the parent layout."""
-        main_title = self.tra("行数统计") 
+        main_title = self.tra("行数统计")
         left_title = self.tra("已翻译")
         right_title = self.tra("剩余")
 
         self.combined_line_card = CombinedLineCard(
             title=main_title,
-            icon=FluentIcon.PRINT, 
+            icon=FluentIcon.PRINT,
             left_title=left_title,
             right_title=right_title,
-            initial_left_value="0",   
+            initial_left_value="0",
             initial_left_unit="Line",
-            initial_right_value="0", 
+            initial_right_value="0",
             initial_right_unit="Line",
-            parent=window 
+            parent=window
         )
 
-        self.combined_line_card.setFixedSize(416, 204) 
+        self.combined_line_card.setFixedSize(416, 204)
 
         parent.addWidget(self.combined_line_card)
 
@@ -563,26 +556,24 @@ class TranslationPage(QWidget, Base):
                 scheduled_time = dialog.get_scheduled_time()
                 current_time = QTime.currentTime()
 
-                # 检查时间是否有效 ---
-                if scheduled_time <= current_time:
-                    # 如果选择的时间是过去或现在
-                    warning_box = MessageBox(self.tra("无效时间"), self.tra("不能设置过去或当前时间为定时翻译时间！"), window)
-                    warning_box.yesButton.setText(self.tra("知道了"))
-                    warning_box.cancelButton.hide() 
-                    warning_box.exec()
-                    return # 不设置定时任务
-                
-
                 # 计算当前时间到设定时间的毫秒数
                 current_seconds = current_time.hour() * 3600 + current_time.minute() * 60 + current_time.second()
                 scheduled_seconds = scheduled_time.hour() * 3600 + scheduled_time.minute() * 60 + scheduled_time.second()
 
-                # 如果设定时间小于当前时间，则认为是明天的时间 (等于的情况已被上面处理)
+                # 如果设定时间小于当前时间，则认为是明天的时间
                 if scheduled_seconds < current_seconds:
                     scheduled_seconds += 24 * 3600  # 添加一天的秒数
 
                 # 计算时间差异（毫秒）
                 msec_diff = (scheduled_seconds - current_seconds) * 1000
+
+                # 检查时间间隔是否有效（50s）
+                if msec_diff < 50000:
+                    warning_box = MessageBox(self.tra("无效时间"), self.tra("与当前时间间隔过短"), window)
+                    warning_box.yesButton.setText(self.tra("知道了"))
+                    warning_box.cancelButton.hide()
+                    warning_box.exec()
+                    return # 不设置定时任务
 
                 # 创建定时器
                 self.scheduled_timer = QTimer(self)

@@ -7,6 +7,7 @@ from ModuleFolders.Cache.CacheItem import CacheItem
 from ModuleFolders.Cache.CacheProject import CacheProject
 from ModuleFolders.FileReader import ReaderUtil
 from ModuleFolders.FileReader.BaseReader import BaseSourceReader
+from ModuleFolders.FileReader.ReaderUtil import make_final_detect_text
 
 
 class DirectoryReader:
@@ -81,20 +82,26 @@ class DirectoryReader:
                                 stats[1] += lang_confidence  # 累加置信度
                                 # 累计有效项目总数
                                 file_valid_items_count[cache_file.storage_path] += 1
-                                source_texts[cache_file.storage_path].append(item.source_text)
+
+                                # 添加行至后续使用
+                                final_detect_text = make_final_detect_text(item)
+                                if final_detect_text:
+                                    source_texts[cache_file.storage_path].append(final_detect_text)
 
                         if cache_file.items:
                             cache_project.add_file(cache_file)
 
         # 处理语言统计结果
-        language_counter = {}
-        low_confidence_language_counter = {}
+        language_counter = defaultdict(list)
+        low_confidence_language_counter = defaultdict(list)
 
         for file_path, lang_stats in language_stats.items():
             # 只有存在有效项目的文件才进行处理
-            if file_valid_items_count[file_path] > 0:
-                high_threshold = file_valid_items_count[file_path] * 0.1  # 有效项目总数的10%
-                low_threshold = file_valid_items_count[file_path] * 0.01  # 有效项目总数的1%
+            current_file_items_count = file_valid_items_count[file_path]
+            if current_file_items_count > 0:
+                high_threshold = max(current_file_items_count * 0.1, min(current_file_items_count, 3))  # 有效项目总数的10%
+                mid_threshold = max(current_file_items_count * 0.05, min(current_file_items_count, 2))  # 有效项目总数的5%
+                low_threshold = max(current_file_items_count * 0.01, 1)  # 有效项目总数的1%
 
                 # 先计算所有语言的平均置信度
                 all_langs = []
@@ -109,37 +116,33 @@ class DirectoryReader:
                 high_confidence_langs = []
                 for lang, count, avg_confidence in sorted_langs:
                     # 应用筛选条件：次数超过阈值且平均置信度大于等于0.82
-                    if count >= high_threshold and avg_confidence >= 0.82:
+                    if count >= high_threshold and avg_confidence >= 0.82 or \
+                            count >= mid_threshold and avg_confidence >= 0.92 or \
+                            count >= low_threshold and avg_confidence >= 0.96:
                         high_confidence_langs.append((lang, count, avg_confidence))
+                # 获取有效语言列表
+                hc_langs_set = {lang for lang, count, avg_confidence in high_confidence_langs}
 
-                # 如果没有满足高置信度条件的语言，检查是否有出现次数>1且平均置信度>=0.92的语言
-                if not high_confidence_langs:
-                    high_confidence_alt_langs = []
-                    for lang, count, avg_confidence in sorted_langs:
-                        if count > 1 and avg_confidence >= 0.92:
-                            high_confidence_alt_langs.append((lang, count, avg_confidence))
+                # 如果到这里了还没有high_confidence_langs的结果，使用mp对所有有效文字进行检测
+                if not high_confidence_langs and len(source_texts[file_path]) > 0:
+                    mp_langs, mp_score, _ = ReaderUtil.detect_language_with_mediapipe(
+                        [CacheItem(source_text='\n'.join(source_texts[file_path]))], 0, None
+                    )[0]
+                    if mp_score >= 0.82:
+                        # 添加到language_counter
+                        language_counter[file_path] = [(mp_langs[0], len(source_texts[file_path]), mp_score)]
 
-                    if high_confidence_alt_langs:
-                        language_counter[file_path] = high_confidence_alt_langs
-                    else:
-                        # 如果到这里了还没有high_confidence_langs的结果，使用mp对所有有效文字进行检测
-                        mp_langs, mp_score, _ = ReaderUtil.detect_language_with_mediapipe(
-                            [CacheItem(source_text='\n'.join(source_texts[file_path]))], 0, None
-                        )[0]
-                        if mp_score >= 0.92:
-                            # 添加到language_counter
-                            language_counter[file_path] = [(mp_langs[0], len(source_texts[file_path]), mp_score)]
-
-                            # 将检测到的语言从sorted_langs中删除
-                            sorted_langs = [lang_item for lang_item in sorted_langs if lang_item[0] != mp_langs[0]]
+                        # 添加到 hc_langs_set
+                        hc_langs_set.add(mp_langs[0])
                 else:
                     language_counter[file_path] = high_confidence_langs
 
                 # 筛选低置信度语言
                 low_confidence_langs = []
                 for lang, count, avg_confidence in sorted_langs:
-                    # 应用筛选条件：出现次数大于等于低阈值或者平均置信度大于等于0.3小于0.8
-                    if low_threshold <= count < high_threshold or (count > 1 and 0.3 <= avg_confidence < 0.8):
+                    # 应用筛选条件：出现次数小于高置信度或者平均置信度小于0.82
+                    # (count < high_threshold or avg_confidence < 0.82) and
+                    if lang not in hc_langs_set:
                         low_confidence_langs.append((lang, count, avg_confidence))
 
                 if low_confidence_langs:

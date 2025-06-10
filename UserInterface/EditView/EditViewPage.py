@@ -3,200 +3,25 @@ import os
 import threading
 import time
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
-from PyQt5.QtWidgets import (QFrame, QLayout, QTreeWidgetItem,
+from PyQt5.QtWidgets import (QFrame, QSizePolicy, QTreeWidgetItem,
                              QWidget, QHBoxLayout, QVBoxLayout, QLabel,
                              QSplitter, QStackedWidget)
-from qfluentwidgets import (Action,  CaptionLabel, FlowLayout, PrimarySplitPushButton, PushButton, RoundMenu,  ToggleToolButton, TransparentDropDownPushButton, TransparentPushButton, 
+from qfluentwidgets import (Action,  CaptionLabel, MessageBox, PrimarySplitPushButton, PushButton, RoundMenu,  ToggleToolButton, TransparentDropDownToolButton, TransparentPushButton, TransparentToolButton,
                             TreeWidget, TabBar, FluentIcon as FIF, CardWidget,
                             ProgressBar)
 
 from Base.Base import Base
-from Widget.DashboardCard import DashboardCard
-from Widget.WaveformCard import WaveformCard
-from Widget.LineEditCard import LineEditCard
-from Widget.ProgressRingCard import ProgressRingCard
-from Widget.FolderDropCard import FolderDropCard
-from Widget.CombinedLineCard import CombinedLineCard
-from Widget.ComboBoxCard import ComboBoxCard
 
-from ModuleFolders.Cache.CacheProject import ProjectType
-
-# 开始页面
-class StartupPage(Base,QWidget):
-    folderSelected = pyqtSignal(str)  # 定义信号，用于通知文件夹路径选择
-
-    def __init__(self, support_project_types=None, parent=None):
-        super().__init__(parent)
-        self.support_project_types = support_project_types
-
-        # 默认配置
-        self.default = {
-            "label_input_exclude_rule": "",
-            "translation_project": "AutoType",
-            "label_input_path": "./input",
-        }
-
-        # 载入并保存默认配置
-        config = self.save_config(self.load_config_from_default())
-
-        # 设置主容器
-        self.container = QVBoxLayout(self)
-        self.container.setSpacing(8)
-        self.container.setContentsMargins(24, 24, 24, 24) # 左、上、右、下
-
-        # 添加组件
-        self.add_widget_exclude_rule(self.container, config)
-        self.add_widget_projecttype(self.container, config)
-        self.add_widget_folder_drop(self.container, config)
-
-        # 填充
-        self.container.addStretch(1)
-
-
-    # 输入的文件/目录排除规则
-    def add_widget_exclude_rule(self, parent, config) -> None:
-
-        def init(widget) -> None:
-            widget.set_text(config.get("label_input_exclude_rule"))
-            widget.set_fixed_width(256)
-            widget.set_placeholder_text(self.tra("*.log,aaa/*"))
-
-        def text_changed(widget, text: str) -> None:
-            config = self.load_config()
-            config["label_input_exclude_rule"] = text.strip()
-            self.save_config(config)
-
-        parent.addWidget(
-            LineEditCard(
-                self.tra("输入文件/目录排除规则"),
-                self.tra("*.log 表示排除所有结尾为 .log 的文件，aaa/* 表示排除输入文件夹下整个 aaa 目录，多个规则用英文逗号分隔"),
-                init=init,
-                text_changed=text_changed,
-            )
-        )
-
-    # 项目类型
-    def add_widget_projecttype(self, parent, config) -> None:
-        # 定义项目类型与值的配对列表（显示文本, 存储值）
-        project_pairs = [
-            (self.tra("Txt小说文件"), ProjectType.TXT),
-            (self.tra("Epub小说文件"), ProjectType.EPUB),
-            (self.tra("Docx文档文件"), ProjectType.DOCX),
-            (self.tra("Srt字幕文件"), ProjectType.SRT),
-            (self.tra("Vtt字幕文件"), ProjectType.VTT),
-            (self.tra("Lrc音声文件"), ProjectType.LRC),
-            (self.tra("Md文档文件"), ProjectType.MD),
-            (self.tra("T++导出文件"), ProjectType.TPP),
-            (self.tra("Trans工程文件"), ProjectType.TRANS),
-            (self.tra("Mtool导出文件"), ProjectType.MTOOL),
-            (self.tra("Renpy导出文件"), ProjectType.RENPY),
-            (self.tra("VNText导出文件"), ProjectType.VNT),
-            (self.tra("I18Next数据文件"), ProjectType.I18NEXT),
-            (self.tra("ParaTranz导出文件"), ProjectType.PARATRANZ),
-            (self.tra('Doc文档文件 (需要Microsoft Office)'), ProjectType.OFFICE_CONVERSION_DOC),
-            (self.tra('Pdf文档文件 (pdf2zh/BabelDOC)'), ProjectType.BABELDOC_PDF),
-            (self.tra("自动识别文件类型"), ProjectType.AUTO_TYPE)
-
-        ]
-
-        # 生成翻译后的配对列表
-        translated_pairs = [(self.tra(display), value) for display, value in project_pairs if value in self.support_project_types]
-
-        def init(widget) -> None:
-            """初始化时根据存储的值设置当前选项"""
-            current_config = self.load_config()
-            current_value = current_config.get("translation_project", "AutoType")
-            
-            # 通过值查找对应的索引
-            index = next(
-                (i for i, (_, value) in enumerate(translated_pairs) if value == current_value),
-                0  # 默认选择第一个选项
-            )
-            widget.set_current_index(max(0, index))
-
-        def current_text_changed(widget, text: str) -> None:
-            """选项变化时存储对应的值"""
-            # 通过显示文本查找对应的值
-            value = next(
-                (value for display, value in translated_pairs if display == text),
-                "AutoType"  # 默认值
-            )
-            
-            config = self.load_config()
-            config["translation_project"] = value
-            self.save_config(config)
-
-        # 创建选项列表（使用翻译后的显示文本）
-        options = [display for display, value in translated_pairs]
-
-        parent.addWidget(
-            ComboBoxCard(
-                self.tra("项目类型"),
-                self.tra("设置当前翻译项目所使用的原始文本的格式，注意，选择错误将不能进行翻译"),
-                options,
-                init=init,
-                current_text_changed=current_text_changed
-            )
-        )
-
-    # 输入文件夹
-    def add_widget_folder_drop(self, parent: QLayout, config: dict) -> None:
-
-        def widget_callback(path: str) -> None:
-            # 更新并保存配置
-            current_config = self.load_config()
-            current_config["label_input_path"] = path.strip()
-            self.save_config(current_config)
-
-            # 发出信号通知文件夹已选择
-            self.folderSelected.emit(path)
-
-        # 获取配置文件中的初始路径
-        initial_path = config.get("label_input_path", "./input")
-
-        drag_card = FolderDropCard(
-            init=initial_path,  # 传入初始路径
-            path_changed=widget_callback,
-        )
-        parent.addWidget(drag_card)
-
-
-# 顶部工具栏
-class CustomToolbar(CardWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setFixedHeight(55)
-        self.layout = QHBoxLayout(self)
-        self.layout.setContentsMargins(8, 5, 8, 5)
-        self.layout.setSpacing(8)
-
-        self.button1 = TransparentDropDownPushButton(FIF.SEARCH, "搜索")
-        self.button2 = TransparentDropDownPushButton(FIF.MAIL, "筛选")
-        self.button3 = TransparentDropDownPushButton(FIF.MAIL, "提取")
-        self.button4 = TransparentDropDownPushButton(FIF.MAIL, "处理")
-        self.button5 = TransparentPushButton(FIF.SHARE, "导出")
-
-        button_icon_size = QSize(18, 18)
-        button_height = 32
-
-        for btn in [self.button1, self.button2, self.button3]:
-            btn.setIconSize(button_icon_size)
-            btn.setFixedHeight(button_height)
-
-        self.layout.addWidget(self.button1)
-        self.layout.addWidget(self.button2)
-        self.layout.addWidget(self.button3)
-        self.layout.addWidget(self.button4)
-        self.layout.addWidget(self.button5)
-        self.layout.addStretch(1)
+from UserInterface.EditView.MonitoringPage import MonitoringPage
+from UserInterface.EditView.StartupPage import StartupPage
 
 # 底部命令栏
-class BottomCommandBar(CardWidget):
+class BottomCommandBar(Base,CardWidget):
     arrowClicked = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedHeight(80)
+        self.setFixedHeight(60)
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(8, 5, 8, 5)
         self.layout.setSpacing(12)
@@ -214,7 +39,7 @@ class BottomCommandBar(CardWidget):
         self.project_name = CaptionLabel('项目名字')
         self.project_name.setFixedWidth(200)
         self.progress_status = CaptionLabel("235/1578")
-        self.progress_status.setTextColor("#404040") 
+        self.progress_status.setTextColor("#404040")
         top_row.addWidget(self.project_name, alignment=Qt.AlignLeft)
         top_row.addStretch()
         top_row.addWidget(self.progress_status, alignment=Qt.AlignRight)
@@ -230,14 +55,15 @@ class BottomCommandBar(CardWidget):
         project_layout.addStretch(1)
 
         self.menu = RoundMenu(parent=self)
-        self.menu.addAction(Action(FIF.BASKETBALL, '开始校正'))
         self.menu.addAction(Action(FIF.ALBUM, '开始润色'))
 
         self.start_btn = PrimarySplitPushButton(FIF.PLAY, '开始翻译')
         self.start_btn.setFlyout(self.menu)
-        self.continue_btn = TransparentPushButton(FIF.ROTATE, '继续')
+        self.continue_btn = TransparentPushButton(FIF.ROTATE, '继续') 
+        self.continue_btn.setEnabled(False)  # 初始不可用
         self.stop_btn = TransparentPushButton(FIF.CANCEL_MEDIUM, '终止')
         self.schedule_btn = TransparentPushButton(FIF.DATE_TIME, '定时')
+        self.export_btn = TransparentPushButton(FIF.SHARE, "导出")
         self.arrow_btn = ToggleToolButton()
         self.arrow_btn.setIcon(FIF.UP)
         self.arrow_btn.setIconSize(QSize(16, 16))
@@ -255,21 +81,140 @@ class BottomCommandBar(CardWidget):
         self.layout.addWidget(self.continue_btn)
         self.layout.addWidget(self.stop_btn)
         self.layout.addWidget(self.schedule_btn)
+        self.layout.addWidget(self.export_btn)
         self.layout.addWidget(self.arrow_btn)
 
         self.arrow_btn.clicked.connect(self.on_arrow_clicked)
 
+        # 注册事件
+        self.subscribe(Base.EVENT.TRANSLATION_STOP_DONE, self.translation_stop_done)  # 监听翻译停止完成事件
+
+        # 连接按钮
+        self.start_btn.clicked.connect(self.command_play)  # 开始按钮
+        self.stop_btn.clicked.connect(self.command_stop)  # 停止按钮
+        self.continue_btn.clicked.connect(self.command_continue)  # 继续按钮
+        self.export_btn.clicked.connect(self.command_export) # 导出按钮
+
+    # 导出已完成的内容
+    def command_export(self) -> None:
+        # 触发导出事件
+        self.emit(Base.EVENT.TRANSLATION_MANUAL_EXPORT, {})
+
+        info_cont = self.tra("已根据当前的翻译数据在输出文件夹下生成翻译文件") + "  ... "
+        self.success_toast("", info_cont)
+
+    # 启用关闭继续翻译按钮
+    def enable_continue_button(self, enable: bool) -> None:
+        self.continue_btn.setEnabled(enable)
+
+    # 监控页面展开信号
     def on_arrow_clicked(self):
         self.arrowClicked.emit()
+
+    # 开始
+    def command_play(self) -> None:
+
+        if self.continue_btn.isEnabled():
+            info_cont1 = self.tra("将重置尚未完成的翻译任务，是否确认开始新的翻译任务") + "  ... ？"
+            message_box = MessageBox("Warning", info_cont1, self.window())
+            info_cont2 = self.tra("确认")
+            message_box.yesButton.setText(info_cont2)
+            info_cont3 = self.tra("取消")
+            message_box.cancelButton.setText(info_cont3)
+
+            # 点击取消，则不触发开始翻译事件
+            if not message_box.exec():
+                return
+
+        self.start_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        self.continue_btn.setEnabled(False)
+
+        # 触发开始翻译事件
+        self.emit(Base.EVENT.TRANSLATION_START, {
+            "continue_status": False,
+        })
+
+        # 如果监控页面未展开，则自动展开
+        if not self.arrow_btn.isChecked():  # 如果监控页面未展开
+            self.arrow_btn.setChecked(True)  # 激活展开按钮
+            self.arrowClicked.emit()  # 发出展开信号
+
+    # 停止
+    def command_stop(self) -> None:
+
+        info_cont1 = self.tra("是否确定停止任务") + "  ... ？"
+        message_box = MessageBox("Warning", info_cont1, self.window()) 
+        info_cont2 = self.tra("确认")
+        message_box.yesButton.setText(info_cont2)
+        info_cont3 = self.tra("取消")
+        message_box.cancelButton.setText(info_cont3)
+
+        # 确认则触发停止翻译事件
+        if message_box.exec():
+            info_cont4 = self.tra("正在停止翻译任务") + "  ... "
+            print(info_cont4)
+
+            self.stop_btn.setEnabled(False)
+
+            # 触发停止翻译事件
+            self.emit(Base.EVENT.TRANSLATION_STOP, {})
+
+    # 继续翻译
+    def command_continue(self) -> None:
+        self.start_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        self.continue_btn.setEnabled(False)
+
+        # 触发开始翻译事件，但发送不同参数
+        self.emit(Base.EVENT.TRANSLATION_START, {
+            "continue_status": True,
+        })
+
+
+    # 翻译停止完成事件
+    def translation_stop_done(self, event: int, data: dict) -> None:
+        self.start_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
+
+        # 设置翻译状态为无任务
+        Base.work_status = Base.STATUS.IDLE
+
+        # 触发翻译状态检查事件
+        self.emit(Base.EVENT.TRANSLATION_CONTINUE_CHECK, {})
 
 # 层级浏览器
 class NavigationCard(CardWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.tree = TreeWidget(self)
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(10, 10, 10, 10)
+        self.layout.setSpacing(8)  # 增加间距
+        
+        # 添加工具栏到层级浏览器顶部
+        self.toolbar = QWidget()
+        self.toolbar_layout = QHBoxLayout(self.toolbar)
+        self.toolbar_layout.setContentsMargins(0, 0, 0, 0)
+        self.toolbar_layout.setSpacing(8)
+        
+        # 搜索按钮
+        self.search_button = TransparentToolButton(FIF.SEARCH)
+        # 筛选按钮
+        self.filter_button = TransparentToolButton(FIF.FILTER)
+
+        # 添加到布局
+        self.toolbar_layout.addStretch(1)  
+        self.toolbar_layout.addWidget(self.search_button)
+        self.toolbar_layout.addWidget(self.filter_button)
+        self.toolbar_layout.addStretch(1)  
+
+        # 将工具栏添加到主布局
+        self.layout.addWidget(self.toolbar)
+        
+        # 添加层级浏览器
+        self.tree = TreeWidget(self)
         self.layout.addWidget(self.tree)
+        
         self.populate_tree()
 
     def populate_tree(self):
@@ -297,23 +242,69 @@ class NavigationCard(CardWidget):
         self.tree.expandAll()
         self.tree.setHeaderHidden(True)
 
-# 信息展示框
+# 标签栏
 class PageCard(CardWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(10, 10, 10, 10)
+        self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(0)
+
+        # 创建水平布局用于放置 TabBar 和按钮
+        tab_layout = QHBoxLayout()
+
+        # 创建并配置 TabBar
         self.tab_bar = TabBar(self)
-        self.tab_bar.setTabMaximumWidth(220)
+        self.tab_bar.setTabMaximumWidth(160)
         self.tab_bar.setTabShadowEnabled(False)
         self.tab_bar.setTabSelectedBackgroundColor(Qt.white, Qt.lightGray)
         self.tab_bar.setScrollable(True)
-        self.layout.addWidget(self.tab_bar)
+
+        # 创建按钮容器
+        button_container = QWidget()
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setSpacing(5)
+
+        # 创建视图切换按钮
+        self.view_button = TransparentToolButton(FIF.VIEW)
+        self.view_button.setIconSize(QSize(16, 16))
+        self.view_button.clicked.connect(self.on_view_button_clicked)
+
+        # 创建功能菜单
+        self.function_menu = RoundMenu(parent=self)
+        self.function_menu.addAction(Action(FIF.SAVE, '保存当前标签'))
+        self.function_menu.addAction(Action(FIF.SAVE_AS, '另存为...'))
+        self.function_menu.addAction(Action(FIF.PRINT, '打印'))
+        self.function_menu.addSeparator()
+        self.function_menu.addAction(Action(FIF.SETTING, '设置'))
+
+        # 创建功能菜单按钮
+        self.menu_button = TransparentDropDownToolButton(FIF.MENU)
+        self.menu_button.setIconSize(QSize(16, 16))
+        self.menu_button.setMenu(self.function_menu)
+
+        # 将按钮添加到按钮容器布局
+        button_layout.addWidget(self.view_button)
+        button_layout.addWidget(self.menu_button)
+
+
+        # 将 TabBar 和按钮容器添加到水平布局
+        tab_layout.addWidget(self.tab_bar, 1)  # 参数 1 表示该控件是可拉伸的
+        tab_layout.addWidget(button_container) # 参数 0 (默认) 表示该控件不拉伸，保持原始大小
+
+        # 将水平布局添加到主布局
+        self.layout.addLayout(tab_layout)
+
+        # 创建并添加 QStackedWidget
         self.stacked_widget = QStackedWidget(self)
         self.layout.addWidget(self.stacked_widget)
 
-# 具体展示页
+    def on_view_button_clicked(self):
+        """视图切换按钮的占位功能"""
+        MessageBox("视图切换", "视图切换按钮被点击", self).exec()
+
+# 标签页
 class TabInterface(QWidget):
     def __init__(self, text: str, parent=None):
         super().__init__(parent=parent)
@@ -323,157 +314,27 @@ class TabInterface(QWidget):
         self.vBoxLayout.addWidget(self.label, 0, Qt.AlignCenter)
         self.setObjectName(text.replace(' ', '-'))
 
-# 监控页面
-class DrawerPage(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        # 设置主容器
-        self.container = QVBoxLayout(self)
-        self.container.setSpacing(8)
-        self.container.setContentsMargins(24, 24, 24, 24)  # 左、上、右、下
-
-        # 添加控件
-        self.head_hbox_container = QWidget(self)
-        self.head_hbox = FlowLayout(self.head_hbox_container, needAni=False)
-        self.head_hbox.setSpacing(8)
-        self.head_hbox.setContentsMargins(0, 0, 0, 0)
-
-        # 添加卡片控件
-        self.add_combined_line_card(self.head_hbox)
-        self.add_token_card(self.head_hbox)
-        self.add_task_card(self.head_hbox)
-        self.add_time_card(self.head_hbox)
-        self.add_remaining_time_card(self.head_hbox)
-        self.add_ring_card(self.head_hbox)
-        self.add_waveform_card(self.head_hbox)
-        self.add_speed_card(self.head_hbox)
-        self.add_stability_card(self.head_hbox)
-
-        # 添加到主容器
-        self.container.addWidget(self.head_hbox_container, 1)
-
-    # 进度环
-    def add_ring_card(self, parent: QLayout) -> None:
-        self.ring = ProgressRingCard(title="任务进度",
-                                    icon=FIF.PIE_SINGLE,
-                                    min_value=0,
-                                    max_value=10000,
-                                    ring_size=(140, 140),
-                                    text_visible=True)
-        self.ring.setFixedSize(204, 204)
-        self.ring.set_format("无任务")
-        parent.addWidget(self.ring)
-
-    # 波形图
-    def add_waveform_card(self, parent: QLayout) -> None:
-        self.waveform = WaveformCard("波形图",
-                                    icon=FIF.MARKET
-                                    )
-        self.waveform.set_draw_grid(False)  # 关闭网格线
-        self.waveform.setFixedSize(633, 204)
-        parent.addWidget(self.waveform)
-
-    # 累计时间
-    def add_time_card(self, parent: QLayout) -> None:
-        self.time = DashboardCard(
-                title="累计时间",
-                value="Time",
-                unit="",
-                icon=FIF.STOP_WATCH,
-            )
-        self.time.setFixedSize(204, 204)
-        parent.addWidget(self.time)
-
-    # 剩余时间
-    def add_remaining_time_card(self, parent: QLayout) -> None:
-        self.remaining_time = DashboardCard(
-                title="剩余时间",
-                value="Time",
-                unit="",
-                icon=FIF.FRIGID,
-            )
-        self.remaining_time.setFixedSize(204, 204)
-        parent.addWidget(self.remaining_time)
-
-    # 行数统计
-    def add_combined_line_card(self, parent: QLayout) -> None:
-
-        self.combined_line_card = CombinedLineCard(
-            title="行数统计",
-            icon=FIF.PRINT, 
-            left_title="已完成",
-            right_title="剩余",
-            initial_left_value="0",   
-            initial_left_unit="Line",
-            initial_right_value="0", 
-            initial_right_unit="Line",
-            parent=self
-        )
-
-        self.combined_line_card.setFixedSize(416, 204) 
-        parent.addWidget(self.combined_line_card)
-
-    # 平均速度
-    def add_speed_card(self, parent: QLayout) -> None:
-        self.speed = DashboardCard(
-                title="平均速度",
-                value="T/S",
-                unit="",
-                icon=FIF.SPEED_HIGH,
-            )
-        self.speed.setFixedSize(204, 204)
-        parent.addWidget(self.speed)
-
-    # 累计消耗
-    def add_token_card(self, parent: QLayout) -> None:
-        self.token = DashboardCard(
-                title="累计消耗",
-                value="Token",
-                unit="",
-                icon=FIF.CALORIES,
-            )
-        self.token.setFixedSize(204, 204)
-        parent.addWidget(self.token)
-
-    # 并行任务
-    def add_task_card(self, parent: QLayout) -> None:
-        self.task = DashboardCard(
-                title="实时任务数",
-                value="0",
-                unit="",
-                icon=FIF.SCROLL,
-            )
-        self.task.setFixedSize(204, 204)
-        parent.addWidget(self.task)
-
-    # 稳定性
-    def add_stability_card(self, parent: QLayout) -> None:
-        self.stability = DashboardCard(
-                title="任务稳定性",
-                value="%",
-                unit="",
-                icon=FIF.TRAIN,
-            )
-        self.stability.setFixedSize(204, 204)
-        parent.addWidget(self.stability)
-
 # 主界面
 class EditViewPage(Base,QFrame):
 
-    def __init__(self, text: str, window,support_project_types) -> None:
+    def __init__(self, text: str, window, plugin_manager, cache_manager, file_reader) -> None:
         super().__init__(window)
         self.setObjectName(text.replace(" ", "-"))
+
+        self.cache_manager = cache_manager  # 缓存管理器
+        self.file_reader = file_reader  # 文件读取器
 
         # 创建主布局
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)  # 四周边距归零
         main_layout.setSpacing(0)  # 控件间距归零
-        
+
         # 顶级堆叠控件，用于切换启动页和主界面
         self.top_stacked_widget = QStackedWidget()
         main_layout.addWidget(self.top_stacked_widget)
 
         # 创建启动页面
+        support_project_types = self.file_reader.get_support_project_types()  # 获取支持的项目类型
         self.startup_page = StartupPage(support_project_types = support_project_types)
 
         # 创建主界面控件
@@ -482,8 +343,7 @@ class EditViewPage(Base,QFrame):
         self.main_interface_layout.setContentsMargins(0, 0, 0, 0)  # 四周边距归零
         self.main_interface_layout.setSpacing(0)  # 控件间距归零
 
-        # 向主界面添加工具栏和堆叠控件
-        self.custom_toolbar = CustomToolbar()
+        # 向主界面添加堆叠控件
         self.stacked_widget = QStackedWidget()
 
         # 主页面设置
@@ -498,17 +358,16 @@ class EditViewPage(Base,QFrame):
         self.main_page_layout.addWidget(self.splitter)
 
         # 监控页面设置
-        self.drawer_page = DrawerPage()
+        self.monitoring_page = MonitoringPage()
 
         # 向堆叠控件添加页面，即信息展示页面与监控页面
         self.stacked_widget.addWidget(self.main_page)
-        self.stacked_widget.addWidget(self.drawer_page)
+        self.stacked_widget.addWidget(self.monitoring_page)
 
         # 底部命令栏设置
         self.bottom_bar_main = BottomCommandBar()
 
         # 组装主界面
-        self.main_interface_layout.addWidget(self.custom_toolbar)
         self.main_interface_layout.addWidget(self.stacked_widget)
         self.main_interface_layout.addWidget(self.bottom_bar_main)
 
@@ -517,10 +376,12 @@ class EditViewPage(Base,QFrame):
         self.top_stacked_widget.addWidget(self.main_interface)
 
         # 设置初始页面
+        #self.stacked_widget.setCurrentIndex(1)  # 默认显示启动页
         self.top_stacked_widget.setCurrentIndex(0)  # 默认显示启动页
 
         # 连接各种信号
         self.startup_page.folderSelected.connect(self.on_folder_selected) # 连接信号到界面切换和路径处理
+        self.startup_page.continueButtonPressed.connect(self.show_main_interface_from_startup_continue) # 继续按钮点击具体事件
         self.bottom_bar_main.back_btn.clicked.connect(lambda: self.top_stacked_widget.setCurrentIndex(0))  # 返回按钮绑定
         self.nav_card.tree.itemClicked.connect(self.on_tree_item_clicked)  # 树形项点击事件
         self.page_card.tab_bar.currentChanged.connect(self.on_tab_changed)  # 标签页切换事件
@@ -530,33 +391,22 @@ class EditViewPage(Base,QFrame):
     # 页面显示事件
     def showEvent(self, event) -> None:
         super().showEvent(event)
-
-        # 重置 UI 状态
-        #self.action_continue.setEnabled(False)
-
         # 触发继续状态检测事件
         self.translation_continue_check()
 
-
     # 继续翻译状态检查事件
     def translation_continue_check(self) -> None:
-        threading.Thread(target = self.translation_continue_check_target).start()
+        threading.Thread(target = self.translation_continue_check_target, daemon=True).start()
 
     # 继续翻译状态检查
     def translation_continue_check_target(self) -> None:
-        # 等一下，等页面切换效果结束再执行，避免争抢 CPU 资源，导致 UI 卡顿
-        time.sleep(0.5)
+        time.sleep(0.5) # 等待页面切换效果
 
-        # 检查结果的默认值
-        self.continue_status = False
+        self.continue_status = False # 默认为False
 
-        # 只有翻译状态为 无任务 时才执行检查逻辑，其他情况默认值
         if Base.work_status == Base.STATUS.IDLE:
             config = self.load_config()
-
-            # 过渡方案，通过状态数据小文件来判断
-
-            cache_folder_path = os.path.join(config.get("label_output_path"), "cache")
+            cache_folder_path = os.path.join(config.get("label_output_path", "./output"), "cache") # 添加默认值
 
             if not os.path.isdir(cache_folder_path):
                 return False
@@ -578,17 +428,116 @@ class EditViewPage(Base,QFrame):
 
         # 根据翻译状态，更新界面
         if self.continue_status == True :
-            pass
+            # 启动页显示继续翻译按钮
+            self.startup_page.show_continue_button(True)
+            # 启用底部命令栏的继续按钮
+            self.bottom_bar_main.enable_continue_button(True)
             #self.top_stacked_widget.setCurrentIndex(1) # 切换到主界面
 
-
+        else:
+            self.startup_page.show_continue_button(False)
+            self.bottom_bar_main.enable_continue_button(False)
 
     # 处理拖拽文件夹路径改变信号
     def on_folder_selected(self, path: str):
-        print(f"切换到主界面，选择的文件夹: {path}")
-        self.top_stacked_widget.setCurrentIndex(1)  # 切换到主界面
 
+        # 获取配置信息
+        config = self.load_config()
+        translation_project = config.get("translation_project", "AutoType")  # 获取翻译项目类型
+        label_input_path = config.get("label_input_path", "./input")   # 获取输入文件夹路径
+        label_input_exclude_rule = config.get("label_input_exclude_rule", "")  # 获取输入文件夹排除规则
 
+        # 读取输入文件夹的文件，生成缓存
+        self.print("")
+        self.info(f"正在读取输入文件夹中的文件 ...")
+        try:
+            # 读取输入文件夹的文件，生成缓存
+            CacheProject = self.file_reader.read_files(
+                    translation_project,
+                    label_input_path,
+                    label_input_exclude_rule
+                )
+            # 读取完成后，保存到缓存管理器中
+            self.cache_manager.load_from_project(CacheProject)
+
+        except Exception as e:
+            self.translating = False # 更改状态
+            self.error("翻译项目数据载入失败 ... 请检查是否正确设置项目类型与输入文件夹 ... ", e)
+            return None
+
+        # 检查数据是否为空
+        if self.cache_manager.get_item_count() == 0:
+            self.translating = False # 更改状态
+            self.error("翻译项目数据载入失败 ... 请检查是否正确设置项目类型与输入文件夹 ... ")
+            return None
+
+        # 输出每个文件的检测信息
+        for _, file in self.cache_manager.project.files.items():
+            # 获取信息
+            language_stats = file.language_stats
+            storage_path = file.storage_path
+            encoding = file.encoding
+            file_project_type = file.file_project_type
+
+            # 输出信息
+            self.print("")
+            self.info(f"已经载入文件 - {storage_path}")
+            self.info(f"文件类型 - {file_project_type}")
+            self.info(f"文件编码 - {encoding}")
+            self.info(f"语言统计 - {language_stats}")
+
+        self.info(f"项目数据全部载入成功 ...")
+        self.print("")
+
+        # 切换到主界面
+        self.top_stacked_widget.setCurrentWidget(self.main_interface)
+
+    # 从启动页的“继续”按钮点击后，切换到主界面
+    def show_main_interface_from_startup_continue(self):
+        # 获取配置信息
+        config = self.load_config()
+        label_output_path = config.get("label_output_path", "./output")   # 获取输入文件夹路径
+
+        # 读取输入文件夹的文件
+        self.print("")
+        self.info(f"正在读取缓存文件 ...")
+        try:
+            # 直接读取缓存文件
+            self.cache_manager.load_from_file(label_output_path)
+
+        except Exception as e:
+            self.translating = False # 更改状态
+            self.error("翻译项目数据载入失败 ... 请检查是否正确设置项目类型与输入文件夹 ... ", e)
+            return None
+
+        # 检查数据是否为空
+        if self.cache_manager.get_item_count() == 0:
+            self.translating = False # 更改状态
+            self.error("翻译项目数据载入失败 ... 请检查是否正确设置项目类型与输入文件夹 ... ")
+            return None
+
+        # 输出每个文件的检测信息
+        for _, file in self.cache_manager.project.files.items():
+            # 获取信息
+            language_stats = file.language_stats
+            storage_path = file.storage_path
+            encoding = file.encoding
+            file_project_type = file.file_project_type
+
+            # 输出信息
+            self.print("")
+            self.info(f"已经载入文件 - {storage_path}")
+            self.info(f"文件类型 - {file_project_type}")
+            self.info(f"文件编码 - {encoding}")
+            self.info(f"语言统计 - {language_stats}")
+
+        self.info(f"项目数据全部载入成功 ...")
+        self.print("")
+
+        # 切换到主界面
+        self.top_stacked_widget.setCurrentWidget(self.main_interface)
+
+    # 监控页面切换
     def toggle_page(self):
         current_index = self.stacked_widget.currentIndex()
         new_index = 1 - current_index
@@ -597,24 +546,24 @@ class EditViewPage(Base,QFrame):
     # 层级浏览器点击事件
     def on_tree_item_clicked(self, item, column):
         tab_text = item.text(0)
-        
+
         # 使用规范化名称进行比较
         normalized_name = self.normalize_name(tab_text)
-        
+
         # 检查是否已存在该标签页
         for i in range(self.page_card.tab_bar.count()):
             if self.normalize_name(self.page_card.tab_bar.tabText(i)) == normalized_name:
                 self.page_card.tab_bar.setCurrentIndex(i)
                 self.page_card.stacked_widget.setCurrentIndex(i)
                 return
-                
+
         # 创建新标签页
         new_tab = TabInterface(tab_text)
         self.page_card.stacked_widget.addWidget(new_tab)
         self.page_card.tab_bar.addTab(tab_text, tab_text)
         new_index = self.page_card.tab_bar.count() - 1
         self.page_card.tab_bar.setCurrentIndex(new_index)
-        
+
         # 立即切换到新创建的页面
         self.page_card.stacked_widget.setCurrentWidget(new_tab)
 
@@ -623,13 +572,13 @@ class EditViewPage(Base,QFrame):
         if index >= 0:
             tab_text = self.page_card.tab_bar.tabText(index)
             normalized_name = self.normalize_name(tab_text)
-            
+
             for i in range(self.page_card.stacked_widget.count()):
                 widget = self.page_card.stacked_widget.widget(i)
                 if self.normalize_name(widget.objectName()) == normalized_name:
                     self.page_card.stacked_widget.setCurrentIndex(i)
                     return
-                
+
     # 规范化标签页索引名
     def normalize_name(self, name):
         # 删除可能存在的不可见字符
