@@ -286,66 +286,6 @@ class TranslatorTask(Base):
 
         return messages, system, extra_log
 
-<<<<<<< HEAD:ModuleFolders/Translator/TranslatorTask.py
-    # 生成日志行
-    def generate_log_rows(self, error: str, start_time: int, prompt_tokens: int, completion_tokens: int, source: list[str], translated: list[str], extra_log: list[str]) -> tuple[list[str], bool]:
-        rows = []
-
-        if error != "":
-            rows.append(error)
-        else:
-            rows.append(
-                f"任务耗时 {(time.time() - start_time):.2f} 秒，"
-                + f"文本行数 {len(source)} 行，提示消耗 {prompt_tokens} Tokens，补全消耗 {completion_tokens} Tokens，平均每行消耗{(prompt_tokens+completion_tokens)/len(source)}，提示/补全比例为 {prompt_tokens/completion_tokens} ，总共消耗 {(prompt_tokens+completion_tokens)} tokens"
-            )
-
-        # 添加额外日志
-        for v in extra_log:
-            rows.append(v.strip())
-
-        # 原文译文对比
-        pair = ""
-        # 修复变量名冲突问题，将循环变量改为 s 和 t
-        for idx, (s, t) in enumerate(itertools.zip_longest(source, translated, fillvalue=""), 1):
-            pair += f"\n"
-            # 处理原文和译文的换行，分割成多行
-            s_lines = s.split('\n') if s is not None else ['']
-            t_lines = t.split('\n') if t is not None else ['']
-            # 逐行对比，确保对齐
-            for s_line, t_line in itertools.zip_longest(s_lines, t_lines, fillvalue=""):
-                pair += f" {s_line} [bright_blue]-->\n[/] {t_line}\n"
-        
-        rows.append(pair.strip())
-
-        return rows, error == ""
-
-    # 生成日志表格
-    def generate_log_table(self, rows: list, success: bool) -> Table:
-        table = Table(
-            box = box.ASCII2,
-            expand = True,
-            title = " ",
-            caption = " ",
-            highlight = True,
-            show_lines = True,
-            show_header = False,
-            show_footer = False,
-            collapse_padding = True,
-            border_style = "green" if success else "red",
-        )
-        table.add_column("", style = "white", ratio = 1, overflow = "fold")
-
-        for row in rows:
-            if isinstance(row, str):
-                table.add_row(escape(row, re.compile(r"(\\*)(\[(?!bright_blue\]|\/\])[a-z#/@][^[]*?)").sub)) # 修复rich table不显示[]内容问题
-            else:
-                table.add_row(*row)
-
-        return table
-
-
-=======
->>>>>>> ef892afa1dcb95ae5f65c2aba27a514ff4e42ebf:ModuleFolders/TaskExecutor/TranslatorTask.py
     # 启动任务
     def start(self) -> dict:
         return self.unit_translation_task()
