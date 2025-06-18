@@ -246,23 +246,6 @@ class NavigationCard(CardWidget):
         self.populate_tree()
 
     def populate_tree(self):
-        item1 = QTreeWidgetItem(['JoJo 1 - Phantom Blood'])
-        item1.addChildren([
-            QTreeWidgetItem(['Jonathan Joestar']),
-            QTreeWidgetItem(['Dio Brando']),
-            QTreeWidgetItem(['Will A. Zeppeli']),
-        ])
-        self.tree.addTopLevelItem(item1)
-
-        item2 = QTreeWidgetItem(['JoJo 3 - Stardust Crusaders'])
-        item21 = QTreeWidgetItem(['Jotaro Kujo'])
-        item21.addChildren([
-            QTreeWidgetItem(['空条承太郎']),
-            QTreeWidgetItem(['空条蕉太狼']),
-            QTreeWidgetItem(['阿强']),
-        ])
-        item2.addChild(item21)
-        self.tree.addTopLevelItem(item2)
 
         item3 = QTreeWidgetItem(['测试文件'])
         self.tree.addTopLevelItem(item3)
