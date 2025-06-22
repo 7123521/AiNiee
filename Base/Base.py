@@ -45,17 +45,19 @@ class Event():
     TABLE_UPDATE = 898                             # 表格更新
     TABLE_FORMAT = 899                             # 表格重排
 
-    APP_SHUT_DOWN = 1000                            # 应用关闭
+    APP_SHUT_DOWN = 99999                          # 应用关闭
 
 # 软件运行状态列表
 class Status():
 
     IDLE = 1000                                     # 无任务
-    TRANSLATING = 3000                              # 翻译中
-    STOPING = 4000                                  # 停止中
+    TASKING = 1001                                  # 任务中
+    STOPING = 1002                                  # 停止中
+    TASKSTOPPED = 1003                              # 任务已停止
+    
     API_TEST = 2000                                 # 接口测试中
-    GLOSS_TASK = 5000                        # 术语表翻译中
-    TABLE_TASK = 5001                        # 表格任务中
+    GLOSS_TASK = 3000                               # 术语表翻译中
+    TABLE_TASK = 4001                               # 表格任务中
 
 class Base():
 
@@ -168,7 +170,7 @@ class Base():
         InfoBar.info(
             title = title,
             content = content,
-            parent = self,
+            parent = self.window(),
             duration = 2500,
             orient = Qt.Horizontal,
             position = InfoBarPosition.TOP,
@@ -180,7 +182,7 @@ class Base():
         InfoBar.error(
             title = title,
             content = content,
-            parent = self,
+            parent = self.window(),
             duration = 2500,
             orient = Qt.Horizontal,
             position = InfoBarPosition.TOP,
@@ -192,7 +194,7 @@ class Base():
         InfoBar.success(
             title = title,
             content = content,
-            parent = self,
+            parent = self.window(),
             duration = 2500,
             orient = Qt.Horizontal,
             position = InfoBarPosition.TOP,
@@ -204,7 +206,7 @@ class Base():
         InfoBar.warning(
             title = title,
             content = content,
-            parent = self,
+            parent = self.window(),
             duration = 2500,
             orient = Qt.Horizontal,
             position = InfoBarPosition.TOP,

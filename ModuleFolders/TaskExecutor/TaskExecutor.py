@@ -53,19 +53,22 @@ class TaskExecutor(Base):
         self.info(f"正在读取数据，准备输出中 ...")
         self.print("")
 
-        # 获取配置信息
+        # 获取配置信息，此时 config 是一个字典，后面需要使用get
         config = self.load_config()
+        
+        output_path = data.get("export_path", config.get("label_output_path"))
 
         # 触发手动导出插件事件
         self.plugin_manager.broadcast_event("manual_export", config, self.cache_manager.project)
 
         # 如果开启了转换简繁开关功能，则进行文本转换
-        if config.response_conversion_toggle:
-            self.print("")
-            self.info(f"已启动自动简繁转换功能，正在使用 {config.opencc_preset} 配置进行字形转换 ...")
+        if config.get("response_conversion_toggle"):  # 使用 .get()
             self.print("")
 
-            converter = opencc.OpenCC(config.opencc_preset)
+            self.info(f"已启动自动简繁转换功能，正在使用 {config.get('opencc_preset')} 配置进行字形转换 ...")
+            self.print("")
+
+            converter = opencc.OpenCC(config.get('opencc_preset'))
             cache_list = self.cache_manager.project.items_iter()
             for item in cache_list:
                 if item.translation_status == TranslationStatus.TRANSLATED:
@@ -73,18 +76,18 @@ class TaskExecutor(Base):
                 if item.translation_status == TranslationStatus.POLISHED:
                     item.polished_text = converter.convert(item.polished_text)
             self.print("")
-            self.info(f"已启动自动简繁转换功能，正在使用 {config.opencc_preset} 配置进行字形转换 ...")
+            self.info(f"简繁转换完成。")
             self.print("")
 
         # 写入文件
         self.file_writer.output_translated_content(
             self.cache_manager.project,
-            config.label_output_path,
-            config.label_input_path,
+            output_path,
+            config.get("label_input_path"), 
         )
 
         self.print("")
-        self.info(f"翻译结果已保存至 {config.label_output_path} 目录 ...")
+        self.info(f"翻译结果已成功保存至 {output_path} 目录。")
         self.print("")
 
     # 任务停止事件
@@ -95,13 +98,14 @@ class TaskExecutor(Base):
         def target() -> None:
             while True:
                 time.sleep(0.5)
-                if self.translating == False:
+                if Base.work_status == Base.STATUS.TASKSTOPPED:
                     self.print("")
                     self.info("翻译任务已停止 ...")
                     self.print("")
                     self.emit(Base.EVENT.TASK_STOP_DONE, {})
                     break
 
+        # 子线程循环检测停止状态
         threading.Thread(target = target).start()
 
     # 任务开始事件
@@ -132,11 +136,9 @@ class TaskExecutor(Base):
 
     # 翻译主流程
     def translation_start_target(self, continue_status: bool) -> None:
-        # 设置内部状态（用于判断翻译任务是否实际在执行）
-        self.translating = True
 
         # 设置翻译状态为正在翻译状态
-        Base.work_status = Base.STATUS.TRANSLATING
+        Base.work_status = Base.STATUS.TASKING
 
         # 读取配置文件，并保存到该类中
         self.config.initialize()
@@ -170,7 +172,7 @@ class TaskExecutor(Base):
             if Base.work_status == Base.STATUS.STOPING:
                 # 循环次数比实际最大轮次要多一轮，当触发停止翻译的事件时，最后都会从这里退出任务
                 # 执行到这里说明停止任意的任务已经执行完毕，可以重置内部状态了
-                self.translating = False
+                Base.work_status = Base.STATUS.TASKSTOPPED
                 return None
 
             # 获取 待翻译 状态的条目数量
@@ -296,7 +298,7 @@ class TaskExecutor(Base):
         self.print("")
 
         # 重置内部状态（正常完成翻译）
-        self.translating = False
+        Base.work_status = Base.STATUS.TASKSTOPPED
 
         # 触发翻译停止完成的事件
         self.emit(Base.EVENT.TASK_STOP_DONE, {})
@@ -307,11 +309,9 @@ class TaskExecutor(Base):
 
     # 润色主流程
     def polish_start_target(self, continue_status: bool) -> None:
-        # 设置内部状态（用于判断翻译任务是否实际在执行）
-        self.translating = True
 
         # 设置翻译状态为正在翻译状态
-        Base.work_status = Base.STATUS.TRANSLATING
+        Base.work_status = Base.STATUS.TASKING
 
         # 读取配置文件，并保存到该类中
         self.config.initialize()
@@ -345,7 +345,7 @@ class TaskExecutor(Base):
             if Base.work_status == Base.STATUS.STOPING:
                 # 循环次数比实际最大轮次要多一轮，当触发停止翻译的事件时，最后都会从这里退出任务
                 # 执行到这里说明停止任意的任务已经执行完毕，可以重置内部状态了
-                self.translating = False
+                Base.work_status = Base.STATUS.TASKSTOPPED
                 return None
 
             # 根据润色模式，获取可润色的条目数量
@@ -421,7 +421,7 @@ class TaskExecutor(Base):
 
             # 根据提示词规则打印基础指令
             system = ""
-            if self.config.polishing_prompt_selection["last_selected_id"] == PromptBuilderEnum.REFINEMENT_COMMON:
+            if self.config.polishing_prompt_selection["last_selected_id"] == PromptBuilderEnum.POLISH_COMMON:
                 system = PromptBuilderPolishing.build_system(self.config)
             else:
                 system = self.config.polishing_prompt_selection["prompt_content"]
@@ -453,7 +453,7 @@ class TaskExecutor(Base):
         self.print("")
 
         # 重置内部状态
-        self.translating = False
+        Base.work_status = Base.STATUS.TASKSTOPPED
 
         # 触发事件
         self.emit(Base.EVENT.TASK_STOP_DONE, {})     # 翻译停止完成的事件

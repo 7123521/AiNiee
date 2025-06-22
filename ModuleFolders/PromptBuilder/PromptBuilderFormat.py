@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 from Base.Base import Base
 from ModuleFolders.TaskConfig.TaskConfig import TaskConfig
-
+from ModuleFolders.PromptBuilder.PromptBuilderEnum import PromptBuilderEnum
 class PromptBuilderFormat(Base):
 
     def __init__(self) -> None:
@@ -53,8 +53,13 @@ class PromptBuilderFormat(Base):
         # 储存额外日志
         extra_log = []
 
-        # 系统提示词
-        system = PromptBuilderFormat.build_system(config)
+
+        # 基础系统提示词
+        if config.polishing_prompt_selection["last_selected_id"]  == PromptBuilderEnum.FORMAT_COMMON:
+            system = PromptBuilderFormat.build_system(config)
+        else:
+            system = config.polishing_prompt_selection["prompt_content"]  # 自定义提示词
+
 
         # 待排序原文
         source_text = PromptBuilderFormat.build_source_text(config,source_text_dict)
