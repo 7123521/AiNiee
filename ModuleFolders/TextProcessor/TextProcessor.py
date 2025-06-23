@@ -3,10 +3,7 @@ import os
 import re
 from typing import List, Dict, Tuple, Any, Optional
 
-from Base.Base import Base
-
-
-class TextProcessor(Base):
+class TextProcessor():
     # 定义日语字符集的正则表达式
     JAPANESE_CHAR_SET_CONTENT = (
         r'\u3040-\u309F'
@@ -182,13 +179,18 @@ class TextProcessor(Base):
         if source_lang == 'ja' or source_lang == 'japanese':
             pattern = self.RE_JA_AFFIX
 
-        processed_lines = []
+        non_empty_lines = []  # 只存储非空行，用于翻译
         lines_info = []
 
         for line in lines:
-            if not line and len(lines) > 1:  # 空行处理
-                processed_lines.append('')
-                lines_info.append({'prefix': '', 'suffix': '', 'is_empty': True})
+            # 修改判断条件：检查空行或纯空白行
+            if (not line or not line.strip()) and len(lines) > 1:  # 空行或纯空白行处理
+                lines_info.append({
+                    'prefix': '',
+                    'suffix': '',
+                    'is_empty': True,
+                    'original_whitespace': line  # 保存原始空白字符
+                })
                 continue
 
             match = pattern.match(line)
@@ -202,14 +204,28 @@ class TextProcessor(Base):
                 if not core_text.strip() and line.strip():
                     core_text, prefix, suffix = line, '', ''
 
-                processed_lines.append(core_text)
+                # 检查前缀 (去除首尾空格后判断是否为数字)
+                if prefix.strip().isdigit():
+                    # 只保留前导空白作为前缀
+                    prefix_leading = prefix[:len(prefix) - len(prefix.lstrip())]
+                    core_text = prefix[len(prefix_leading):] + core_text  # 数字+紧邻空白都合并
+                    prefix = prefix_leading
+
+                # 检查后缀
+                if suffix.strip().isdigit():
+                    # 只保留后尾空白作为后缀
+                    suffix_trailing = suffix[len(suffix.rstrip()):]
+                    core_text = core_text + suffix[:len(suffix) - len(suffix_trailing)]  # 数字+紧邻空白都合并
+                    suffix = suffix_trailing
+
+                non_empty_lines.append(core_text)
                 lines_info.append({'prefix': prefix, 'suffix': suffix, 'is_empty': False})
             else:
-                processed_lines.append(line)
+                non_empty_lines.append(line)
                 lines_info.append({'prefix': '', 'suffix': '', 'is_empty': False})
 
-        # 重新组合
-        processed_text = '\n'.join(processed_lines)
+        # 返回用于翻译的文本（不包含空行和纯空白行）
+        processed_text = '\n'.join(non_empty_lines)
 
         return processed_text, {
             'type': 'multiline',
@@ -227,22 +243,36 @@ class TextProcessor(Base):
 
     def _restore_multiline_text(self, text: str, info: Dict) -> str:
         """还原多行文本"""
-        lines = text.split('\n')
+        translated_lines = text.split('\n')
         lines_info = info.get('lines_info', [])
         line_endings = info.get('line_endings', [])
 
+        # 验证翻译结果行数是否正确
+        expected_translated_count = sum(1 for line_info in lines_info
+                                        if not line_info.get('is_empty', False))
+
+        if len(translated_lines) != expected_translated_count:
+            print(f"[Warning]: 翻译前后行数不匹配! 期望{expected_translated_count}行，实际{len(translated_lines)}行")
+
         restored_lines = []
-        for i, line in enumerate(lines):
-            if i < len(lines_info):
-                line_info = lines_info[i]
-                if line_info.get('is_empty', False):
-                    restored_lines.append('')
-                else:
+        translated_index = 0
+
+        for line_info in lines_info:
+            if line_info.get('is_empty', False):
+                # 还原空行或纯空白行
+                original_whitespace = line_info.get('original_whitespace', '')
+                restored_lines.append(original_whitespace)
+            else:
+                # 还原非空行
+                if translated_index < len(translated_lines):
+                    line = translated_lines[translated_index]
                     prefix = line_info.get('prefix', '')
                     suffix = line_info.get('suffix', '')
                     restored_lines.append(f"{prefix}{line}{suffix}")
-            else:
-                restored_lines.append(line)
+                    translated_index += 1
+                else:
+                    # 防护措施：如果翻译结果不够，使用空字符串
+                    restored_lines.append('')
 
         # 还原原始换行符
         restored_text = '\n'.join(restored_lines)
